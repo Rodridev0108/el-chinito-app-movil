@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
-
 import {
-    Alert,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
@@ -86,12 +85,7 @@ export default function Inicio() {
 
           <TouchableOpacity
             style={styles.botonCarta}
-            onPress={() =>
-              Alert.alert(
-                "Próximamente",
-                "La carta se implementará en el siguiente paso.",
-              )
-            }
+            onPress={() => router.push("/carta")}
           >
             <Text style={styles.botonCartaTexto}>Ver carta</Text>
           </TouchableOpacity>
@@ -102,12 +96,7 @@ export default function Inicio() {
         <View style={styles.opciones}>
           <TouchableOpacity
             style={styles.opcion}
-            onPress={() =>
-              Alert.alert(
-                "Próximamente",
-                "La carta se implementará en el siguiente paso.",
-              )
-            }
+            onPress={() => router.push("/carta")}
           >
             <Text style={styles.opcionIcono}>🍽️</Text>
 
