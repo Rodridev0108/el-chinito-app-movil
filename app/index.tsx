@@ -1,5 +1,9 @@
 import { useState } from "react";
+
+import { useRouter } from "expo-router";
+
 import {
+  ActivityIndicator,
   Alert,
   SafeAreaView,
   ScrollView,
@@ -11,7 +15,19 @@ import {
   View,
 } from "react-native";
 
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+
+import { auth, db } from "../config/firebaseConfig";
+
 export default function Index() {
+  const router = useRouter();
+
   const [modo, setModo] = useState<"ingresar" | "crear">("ingresar");
 
   const [nombre, setNombre] = useState("");
@@ -19,18 +35,30 @@ export default function Index() {
   const [contrasena, setContrasena] = useState("");
   const [confirmarContrasena, setConfirmarContrasena] = useState("");
 
-  const procesarFormulario = () => {
+  const [cargando, setCargando] = useState(false);
+
+  const cambiarModo = (nuevoModo: "ingresar" | "crear") => {
+    setModo(nuevoModo);
+
+    setNombre("");
+    setCorreo("");
+    setContrasena("");
+    setConfirmarContrasena("");
+  };
+
+  const procesarFormulario = async () => {
+    const nombreLimpio = nombre.trim();
+    const correoLimpio = correo.trim().toLowerCase();
+
     if (modo === "ingresar") {
-      if (correo === "" || contrasena === "") {
+      if (correoLimpio === "" || contrasena === "") {
         Alert.alert("Aviso", "Completa el correo y la contraseña.");
         return;
       }
-
-      Alert.alert("Correcto", "Inicio de sesión realizado.");
     } else {
       if (
-        nombre === "" ||
-        correo === "" ||
+        nombreLimpio === "" ||
+        correoLimpio === "" ||
         contrasena === "" ||
         confirmarContrasena === ""
       ) {
@@ -43,7 +71,79 @@ export default function Index() {
         return;
       }
 
-      Alert.alert("Correcto", "Cuenta creada correctamente.");
+      if (contrasena.length < 6) {
+        Alert.alert("Aviso", "La contraseña debe tener al menos 6 caracteres.");
+        return;
+      }
+    }
+
+    try {
+      setCargando(true);
+
+      if (modo === "crear") {
+        const credencial = await createUserWithEmailAndPassword(
+          auth,
+          correoLimpio,
+          contrasena,
+        );
+
+        await setDoc(doc(db, "usuarios", credencial.user.uid), {
+          nombre: nombreLimpio,
+          correo: correoLimpio,
+          rol: "cliente",
+          fechaRegistro: serverTimestamp(),
+        });
+
+        /*
+          Firebase inicia sesión automáticamente
+          al crear una cuenta. La cerramos para que
+          el usuario vuelva al formulario de ingreso.
+        */
+        await signOut(auth);
+
+        Alert.alert(
+          "Correcto",
+          "Cuenta creada correctamente. Ahora puedes iniciar sesión.",
+        );
+
+        setNombre("");
+        setCorreo("");
+        setContrasena("");
+        setConfirmarContrasena("");
+        setModo("ingresar");
+      } else {
+        await signInWithEmailAndPassword(auth, correoLimpio, contrasena);
+
+        setCorreo("");
+        setContrasena("");
+
+        router.replace("/inicio");
+      }
+    } catch (error: any) {
+      console.log("Error de Firebase:", error.code);
+
+      if (error.code === "auth/email-already-in-use") {
+        Alert.alert("Error", "Este correo ya está registrado.");
+      } else if (error.code === "auth/invalid-email") {
+        Alert.alert("Error", "El correo ingresado no es válido.");
+      } else if (
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/user-not-found"
+      ) {
+        Alert.alert("Error", "El correo o la contraseña son incorrectos.");
+      } else if (error.code === "auth/weak-password") {
+        Alert.alert("Error", "La contraseña es demasiado débil.");
+      } else if (error.code === "auth/network-request-failed") {
+        Alert.alert(
+          "Error",
+          "No se pudo conectar con Firebase. Revisa tu conexión a Internet.",
+        );
+      } else {
+        Alert.alert("Error", "No se pudo completar la operación.");
+      }
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -71,7 +171,8 @@ export default function Index() {
           <View style={styles.tabs}>
             <TouchableOpacity
               style={modo === "ingresar" ? styles.tabActivo : styles.tab}
-              onPress={() => setModo("ingresar")}
+              onPress={() => cambiarModo("ingresar")}
+              disabled={cargando}
             >
               <Text
                 style={
@@ -84,7 +185,8 @@ export default function Index() {
 
             <TouchableOpacity
               style={modo === "crear" ? styles.tabActivo : styles.tab}
-              onPress={() => setModo("crear")}
+              onPress={() => cambiarModo("crear")}
+              disabled={cargando}
             >
               <Text
                 style={
@@ -106,11 +208,12 @@ export default function Index() {
                 placeholderTextColor="#9E9389"
                 value={nombre}
                 onChangeText={setNombre}
+                editable={!cargando}
               />
             </>
           )}
 
-          <Text style={styles.label}>Correo o celular</Text>
+          <Text style={styles.label}>Correo electrónico</Text>
 
           <TextInput
             style={styles.input}
@@ -118,8 +221,10 @@ export default function Index() {
             placeholderTextColor="#9E9389"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
             value={correo}
             onChangeText={setCorreo}
+            editable={!cargando}
           />
 
           <Text style={styles.label}>Contraseña</Text>
@@ -131,6 +236,7 @@ export default function Index() {
             secureTextEntry
             value={contrasena}
             onChangeText={setContrasena}
+            editable={!cargando}
           />
 
           {modo === "crear" && (
@@ -144,37 +250,48 @@ export default function Index() {
                 secureTextEntry
                 value={confirmarContrasena}
                 onChangeText={setConfirmarContrasena}
+                editable={!cargando}
               />
             </>
           )}
 
           {modo === "ingresar" && (
-            <TouchableOpacity>
+            <TouchableOpacity disabled={cargando}>
               <Text style={styles.olvidaste}>¿Olvidaste tu clave?</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={styles.botonIngresar}
+            style={[
+              styles.botonIngresar,
+              cargando && styles.botonDeshabilitado,
+            ]}
             onPress={procesarFormulario}
+            disabled={cargando}
           >
-            <Text style={styles.botonIngresarTexto}>
-              {modo === "ingresar" ? "Ingresar" : "Crear cuenta"}
-            </Text>
+            {cargando ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.botonIngresarTexto}>
+                {modo === "ingresar" ? "Ingresar" : "Crear cuenta"}
+              </Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.separador}>
             <View style={styles.linea} />
+
             <Text style={styles.separadorTexto}>o continúa con</Text>
+
             <View style={styles.linea} />
           </View>
 
           <View style={styles.botonesSociales}>
-            <TouchableOpacity style={styles.botonGoogle}>
+            <TouchableOpacity style={styles.botonGoogle} disabled={cargando}>
               <Text style={styles.socialTexto}>G Google</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.botonApple}>
+            <TouchableOpacity style={styles.botonApple} disabled={cargando}>
               <Text style={styles.socialTexto}>● Apple</Text>
             </TouchableOpacity>
           </View>
@@ -304,6 +421,10 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  botonDeshabilitado: {
+    opacity: 0.7,
   },
 
   botonIngresarTexto: {
