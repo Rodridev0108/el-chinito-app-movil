@@ -12,16 +12,39 @@ import {
 } from "react-native";
 
 export default function Index() {
+  const [modo, setModo] = useState<"ingresar" | "crear">("ingresar");
+
+  const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
+  const [confirmarContrasena, setConfirmarContrasena] = useState("");
 
-  const iniciarSesion = () => {
-    if (correo === "" || contrasena === "") {
-      Alert.alert("Aviso", "Completa el correo y la contraseña.");
-      return;
+  const procesarFormulario = () => {
+    if (modo === "ingresar") {
+      if (correo === "" || contrasena === "") {
+        Alert.alert("Aviso", "Completa el correo y la contraseña.");
+        return;
+      }
+
+      Alert.alert("Correcto", "Inicio de sesión realizado.");
+    } else {
+      if (
+        nombre === "" ||
+        correo === "" ||
+        contrasena === "" ||
+        confirmarContrasena === ""
+      ) {
+        Alert.alert("Aviso", "Completa todos los campos.");
+        return;
+      }
+
+      if (contrasena !== confirmarContrasena) {
+        Alert.alert("Aviso", "Las contraseñas no coinciden.");
+        return;
+      }
+
+      Alert.alert("Correcto", "Cuenta creada correctamente.");
     }
-
-    Alert.alert("Correcto", "Datos ingresados correctamente.");
   };
 
   return (
@@ -46,14 +69,46 @@ export default function Index() {
 
         <View style={styles.formulario}>
           <View style={styles.tabs}>
-            <TouchableOpacity style={styles.tabActivo}>
-              <Text style={styles.tabActivoTexto}>Ingresar</Text>
+            <TouchableOpacity
+              style={modo === "ingresar" ? styles.tabActivo : styles.tab}
+              onPress={() => setModo("ingresar")}
+            >
+              <Text
+                style={
+                  modo === "ingresar" ? styles.tabActivoTexto : styles.tabTexto
+                }
+              >
+                Ingresar
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.tab}>
-              <Text style={styles.tabTexto}>Crear cuenta</Text>
+            <TouchableOpacity
+              style={modo === "crear" ? styles.tabActivo : styles.tab}
+              onPress={() => setModo("crear")}
+            >
+              <Text
+                style={
+                  modo === "crear" ? styles.tabActivoTexto : styles.tabTexto
+                }
+              >
+                Crear cuenta
+              </Text>
             </TouchableOpacity>
           </View>
+
+          {modo === "crear" && (
+            <>
+              <Text style={styles.label}>Nombre completo</Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Ana Flores"
+                placeholderTextColor="#9E9389"
+                value={nombre}
+                onChangeText={setNombre}
+              />
+            </>
+          )}
 
           <Text style={styles.label}>Correo o celular</Text>
 
@@ -78,15 +133,34 @@ export default function Index() {
             onChangeText={setContrasena}
           />
 
-          <TouchableOpacity>
-            <Text style={styles.olvidaste}>¿Olvidaste tu clave?</Text>
-          </TouchableOpacity>
+          {modo === "crear" && (
+            <>
+              <Text style={styles.label}>Confirmar contraseña</Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="Repite tu contraseña"
+                placeholderTextColor="#9E9389"
+                secureTextEntry
+                value={confirmarContrasena}
+                onChangeText={setConfirmarContrasena}
+              />
+            </>
+          )}
+
+          {modo === "ingresar" && (
+            <TouchableOpacity>
+              <Text style={styles.olvidaste}>¿Olvidaste tu clave?</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.botonIngresar}
-            onPress={iniciarSesion}
+            onPress={procesarFormulario}
           >
-            <Text style={styles.botonIngresarTexto}>Ingresar</Text>
+            <Text style={styles.botonIngresarTexto}>
+              {modo === "ingresar" ? "Ingresar" : "Crear cuenta"}
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.separador}>
